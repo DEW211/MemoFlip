@@ -1,0 +1,78 @@
+version: '3'
+services:
+    apigateway:
+        image: traefik:v2.0.1
+        ports:
+            - "5080:80"
+            - "5089:8080"
+        command: 
+            - "--api.insecure=true"
+            - "--api.dashboard=true"
+            - "--providers.docker=true"
+            - "--providers.docker.exposedbydefault=false"
+        volumes: 
+            - /var/run/docker.sock:/var/run/docker.sock
+        networks: 
+            - memoflip-network
+
+    album-api:
+        image: "${REGISTRY_URL:-memoflip}/album-api:${IMAGE_TAG:-latest}"
+        ports:
+            - '8081:80'
+        build: 
+            context: ./AlbumAPI
+            dockerfile: AlbumAPI/Dockerfile
+        networks: 
+            - memoflip-network
+        labels: 
+            - "traefik.enable=true"
+            - "traefik.http.routers.album-api.rule=PathPrefix(`/albumapi`)"
+
+    frontend:
+        image: "${REGISTRY_URL:-memoflip}/frontend:${IMAGE_TAG:-latest}"
+        ports: 
+            - '8090:80'
+        build:
+            context: .
+            dockerfile: onlab-frontend/Dockerfile
+        labels: 
+            - "traefik.enable=true"
+            - "traefik.http.routers.frontend.rule=PathPrefix(`/`)" # Routing rule
+        networks: 
+            - memoflip-network
+
+    rabbitmq:
+        image: 'rabbitmq:3.8.3-management-alpine'
+        ports: 
+            - '5672:5672'
+            - '15672:15672'
+        networks: 
+            - memoflip-network
+
+    video-api:
+        image: "${REGISTRY_URL:-memoflip}/video-api:${IMAGE_TAG:-latest}"
+        ports:
+            - '8082:80'
+        build: 
+            context: ./VideoAPI
+            dockerfile: VideoAPI/Dockerfile
+        networks: 
+            - memoflip-network
+        labels: 
+            - "traefik.enable=true"
+            - "traefik.http.routers.video-api.rule=PathPrefix(`/videoapi`)"
+
+    video-cutter:
+        image: "${REGISTRY_URL:-memoflip}/video-cutter:${IMAGE_TAG:-latest}"
+        build: 
+            context: ./XabeTest
+            dockerfile: XabeTest/Dockerfile
+        networks: 
+            - memoflip-network
+        labels: 
+            - "traefik.enable=true"
+            - "traefik.http.routers.video-cutter.rule=PathPrefix(`/videocutter`)"
+    
+networks: 
+    memoflip-network:
+        driver: bridge
